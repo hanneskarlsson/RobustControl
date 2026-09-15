@@ -100,7 +100,7 @@ G_F16 = Gn*Ga;                              % Airplane model
 
 % Is the airplane model G_F16 is stable?
 
-eig(G_F16);
+eig(G_F16.A);
 
 % Is the airplane model G_F16 minimal order?
 
@@ -135,7 +135,7 @@ gT   =  ureal('gT',1.0, 'percentage', 50);
 ge   =  ureal('ge', 1.0, 'percentage', 10);
 
 % Define the uncertain dynamics for thrust
-GTu=tf(gT, [(t1*t2),(1/t1 + 1/t2)], (1));              % Thrust
+GTu=tf(gT, [1/(t1*t2),(1/t1 + 1/t2),1]);              % Thrust
 
 % Define the uncertain dynamics for elevator deflection
 Geu=tf(ge, [(1/t3), 1]);                               % Elevator deflection
@@ -152,7 +152,7 @@ samples = 100; % number of samples
 
 Geu_samples = usample( Geu , samples); 
 GTu_samples = usample( GTu , samples);
-Gau_samples = usample( Gau, smples );
+Gau_samples = usample( Gau, samples );
 
 % Plot the step responses and bode diagrams (sigma plot)
 % Feel free to use the following plotting routine:
@@ -194,7 +194,7 @@ clc
 N = 1000;                  % number of time steps in simulation
 T = linspace(0,50,N);      % time vector
 flag_noise = 1;            % set to zero to remove noise
-flag_x0 = 1;               % set to zero to initialize system at the origin
+flag_x0 = 0;               % set to zero to initialize system at the origin
 
 % Inputs:
 r = zeros(N,1);            % reference signal
@@ -250,9 +250,9 @@ ylim([-10, 10])
 % correspond with the input and output names of 'Ga'.
 
 % Take a random sample of the uncertain actuator dynamics
-%Ga_random = usample(...);
-%Ga_random.InputName = 'u';
-%Ga_random.OutputName = 'ydelta';
+Ga_random = usample(Gau);
+Ga_random.InputName = 'u';
+Ga_random.OutputName = 'ydelta';
 
 % Close the loop with Ga_random instead of Ga
 clp_LQGu = connect(Ga_random,Gn,LQG,Wn,Wd,Sum1,Sum2,inputs,outputs);
@@ -283,6 +283,9 @@ clc
 % To compute the H2 controller use 'h2syn'
 
 % Define the filters Wra, We, Wp, Wu
+
+Wra_tf = tf([6.25*6.25], [1 12.5 6.25*6.25]);
+Wra = ss([0; ])
 
 
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
@@ -315,7 +318,6 @@ figure(4)
 
 % plot the singular values
 figure(5)
-
 
 
 %% A3/Ex1

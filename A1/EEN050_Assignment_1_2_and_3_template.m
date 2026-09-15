@@ -100,7 +100,7 @@ G_F16 = Gn*Ga;                              % Airplane model
 
 % Is the airplane model G_F16 is stable?
 
-eig(G_F16);
+eig(G_F16.A);
 
 % Is the airplane model G_F16 minimal order?
 
@@ -284,6 +284,26 @@ clc
 
 % Define the filters Wra, We, Wp, Wu
 
+Wra_tf = tf([6.2255*6.25], [1 12.5 6.25*6.25]);
+Wra = ss(Wra_tf);
+Wra.InputName = 'r';
+Wd.OutputName = 'wra';
+
+We_tf = tf([0.4 3.94], [1 0.00985]);
+We = ss(We_tf);
+We.InputName = 'wra_plus_y';
+We.OutputName = 'ze';
+
+Wp_tf = tf([0.015 0.4909][1 0.1964]);
+Wp_tf_alpha = tf([]);
+Wp = ss([Wp_tf, Wp_tf_alpha]);
+Wp.InputName = 'y';
+Wp.outputName = 'zp';
+
+Wu_tf = tf([]);
+Wu = ss(Wu_tf);
+We.InputName = ''
+
 
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
 % Feel free to use the samples taken in A1/Ex2
@@ -315,7 +335,6 @@ figure(4)
 
 % plot the singular values
 figure(5)
-
 
 
 %% A3/Ex1
