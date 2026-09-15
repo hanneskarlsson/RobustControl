@@ -284,8 +284,33 @@ clc
 
 % Define the filters Wra, We, Wp, Wu
 
-Wra_tf = tf([6.25*6.25], [1 12.5 6.25*6.25]);
-Wra = ss([0; ])
+Wra_tf = tf(6.2255*6.25, [1 12.5 6.25*6.25]);
+Wra = ss([Wra_tf; 0]);
+Wra.InputName = 'r';
+Wd.OutputName = 'wra';
+
+We_tf = tf([0.4 3.94], [1 0.00985]);
+We = ss(diag([We_tf 0]));
+We.InputName = 'wra_plus_y';
+We.OutputName = 'ze';
+
+Wp_tf_alpha = tf([0.015 0.4909],[1 0.1964]);
+Wp_tf_alpha_n = tf([0.0063 0.7637], [1 0.3055]);
+Wp = ss(diag([Wp_tf_alpha; Wp_tf_alpha_n]));
+Wp.InputName = 'y';
+Wp.outputName = 'zp';
+
+penalty_freq = deg2rad(35)
+
+Wu = ss(1/penalty_freq);
+Wu.InputName = 'utilde';
+Wu.OutputName = 'zu';
+
+sum_wra_y = sumblk('wra_plus_y = wra - y');
+
+
+
+WmT = 
 
 
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
