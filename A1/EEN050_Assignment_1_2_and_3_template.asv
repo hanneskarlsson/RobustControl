@@ -10,7 +10,6 @@ clc
 % - Run this section first and do not overwrite any of the variables here
 % besides (if necessary) input names and output names for the ss-objects.
 
-
 %Low fidelity F16 longitudinal model from Aircraft Control and Simulation (B.L.Stevens-F.L.Lewis) pp. 156
 %The linearized dynamic of the airplane F16
 A_n=[-0.127 -235 -32.2 -9.51 0.314;-7E-4 -0.969 0 0.908 -2E-4;0 0 0 1 0; 9E-4 -4.56 0 -1.58 0;0 0 0 0 -5];
@@ -26,6 +25,7 @@ D_n=[0 0;0 0;0 0.033];
 %Note, elevator deflection has a direct effect on vertical/normal
 %accelleration
 Gn=ss(A_n,B_n,C_n,D_n);
+tf(Gn)
 Gn.InputName = 'utilde';
 Gn.OutputName = 'y';
 % Actuator dynamics (nominal):
@@ -34,6 +34,7 @@ Ge = tf(1,[1/25 1]);                    % Elevator deflection
 Ga  = ss([GT, 0;0, Ge]);                % Actuator dynamics
 Ga.InputName = 'u';
 Ga.OutputName = 'ytilde';
+tf(Ga)
 
 % Disturbance model:
 dryden =  tf([0.9751 0.2491],[1 0.885 0.1958]);
@@ -96,49 +97,66 @@ LQG.Outputname = {'u(1)','u(2)'};
 
 %% A1/Ex1 - Open loop analysis
 clc
-G_F16 = Gn*Ga;                              % Airplane model
-
+G_F16 = Gn*Ga;                            % Airplane model
 % Is the airplane model G_F16 is stable?
+eigenvalues = eig(G_F16)
 
-eig(G_F16.A);
+% all negative so it is stable
 
 % Is the airplane model G_F16 minimal order?
+[A,B,C,D] = ssdata(G_F16);
+n = size(A,1);
+rankc = rank(ctrb(A,B));
+ranko = rank(obsv(A,C));
+if n == rankc && n == ranko
+    disp('System is minimal')
+else
+    disp('System is not minmal')
+end
+ % It is minimal
 
 
 % Plot the singular values of the airplane model G_F16 (see the command
 % 'sigma')
 sigma(G_F16)
 
+% 42.3 dB at 0.154 hz
 
 % Compute the H-infinity norm of the airplane model
 % (This can be done with the command 'hinfnorm'.)
-%% 
-clc;
-hinfnorm(G_F16);
+G_F16Inf = mag2db(hinfnorm(G_F16))
+
+% 42.3083 db
 
 % Compute the H-2 norm of the airplane model 
 % (The easiest way to do this is with the command 'norm'.)
 % example: norm(ss-object of interest,2)
-tf(Gn)
 
+G_F16norm2 = norm(G_F16,2)
 % Compute the H-2 norm of 'Gn' 
-
+Gnnorm2 = norm(Gn,2)
+pole(Gn)
+tf(Gn)
+% It is not strictly proper which causes it to have dirac delta a t=0 which
+% has a infinite energy.
+% 
 %% A1/Ex2 - Uncertain actuator dynamics
 % MATLAB-functions to use, 'tf', 'ureal', 'usample', 'step', 'sigma',
 % 'blkdiag'.
 clc
 % Define the uncertainty parameters with 'ureal'
-t1   =  ureal('t1',2.5,'percentage', 30);
-t2   =  ureal('t2',10, 'percentage', 40);
-t3   =  ureal('t3',25,'percentage', 25);
-gT   =  ureal('gT',1.0, 'percentage', 50);
-ge   =  ureal('ge', 1.0, 'percentage', 10);
+t1   =  ureal('t1',2.5,'percentage',30);
+t2   =  ureal('t2',10.0,'percentage', 40);
+t3   =  ureal('t3', 25,'percentage', 25);
+gT   =  ureal('gT', 1.0, 'percentage',  50);
+ge   =  ureal('ge', 1.0, 'percentage',  10);
+
 
 % Define the uncertain dynamics for thrust
-GTu=tf(gT, [1/(t1*t2),(1/t1 + 1/t2),1]);              % Thrust
+GTu=tf([gT],[1/(t1*t2),(1/t1+1/t2),1]);                % Thrust
 
 % Define the uncertain dynamics for elevator deflection
-Geu=tf(ge, [(1/t3), 1]);                               % Elevator deflection
+Geu=tf(ge, [1/t3, 1])                               % Elevator deflection
 
 % Define the uncertain actuator dynamics (block diagonal)
 Gau = blkdiag(GTu,Geu);
@@ -150,10 +168,9 @@ samples = 100; % number of samples
 % it takes time to generate 100 samples so feel free to change this
 % the value of 'samples' when you are figuring things out.
 
-Geu_samples = usample( Geu , samples); 
-GTu_samples = usample( GTu , samples);
-Gau_samples = usample( Gau, samples );
-
+Geu_samples = usample(Geu,100); 
+GTu_samples = usample(GTu,100);
+%f
 % Plot the step responses and bode diagrams (sigma plot)
 % Feel free to use the following plotting routine:
 figure(1)
@@ -177,7 +194,7 @@ hold on
 sigma(GTu.NominalValue, 'red')
 title('Thrust: singular values')
 legend('random samples','nominal')
- 
+
 subplot(2,2,4)
 sigma(GTu_samples)
 hold on
@@ -185,6 +202,10 @@ sigma(GTu.NominalValue, 'red')
 title('Elevator deflection: singular values')
 legend('random samples','nominal')
 hold off
+
+% Both systems remain stable with the uncertaintiy
+% The thursts magnitude is however affected
+%
 %% A1/Ex3 - (1)
 % Simulation of LQG controller w. nominal actuator dynamics
 % Consult the documentation for 'lsim' and 'connect' to better understand
@@ -194,7 +215,7 @@ clc
 N = 1000;                  % number of time steps in simulation
 T = linspace(0,50,N);      % time vector
 flag_noise = 1;            % set to zero to remove noise
-flag_x0 = 0;               % set to zero to initialize system at the origin
+flag_x0 = 1;               % set to zero to initialize system at the origin
 
 % Inputs:
 r = zeros(N,1);            % reference signal
@@ -209,7 +230,6 @@ Wd.OutputName = 'Wd';
 
 Ga.InputName = 'u';
 Ga.OutputName = 'ydelta';
-
 Wn.InputName = 'n';
 Wn.OutputName = 'Wn';
 
@@ -241,29 +261,6 @@ plot(T,Y_LQG,T,r,'r--')
 legend('angle of attack','reference signal')
 title('Reference tracking w. LQG on the angle of attack')
 ylim([-10, 10])
-
-%% A1/Ex3 - (2)
-% Closed loop simulation w. LQG and uncertain actuator dynamics
-% Repeat the above simulation with the ss-object 'Ga' replaced by a sample
-% of the uncertain ss-object for the actuator dynamics 'Gau'(c.f A1/Ex2).
-% The input and output names of the samples actuator dynamics should
-% correspond with the input and output names of 'Ga'.
-
-% Take a random sample of the uncertain actuator dynamics
-Ga_random = usample(Gau);
-Ga_random.InputName = 'u';
-Ga_random.OutputName = 'ydelta';
-
-% Close the loop with Ga_random instead of Ga
-clp_LQGu = connect(Ga_random,Gn,LQG,Wn,Wd,Sum1,Sum2,inputs,outputs);
-% simulate and plot
-Y_LQGu = lsim(clp_LQGu,U,T,x0);
-figure(3)
-plot(T,Y_LQGu,T,r,'r--')
-legend('angle of attack','reference signal')
-title('Reference tracking w. LQG on the angle of attack (random actuator dynamics)')
-ylim([-10, 10])
-
 %% A2/Ex1
 clc
 % Notes:
@@ -284,44 +281,48 @@ clc
 
 % Define the filters Wra, We, Wp, Wu
 
-Wra_tf = tf(6.2255*6.25, [1 12.5 6.25*6.25]);
-Wra = ss([Wra_tf; 0]);
+Wra_tf = tf(6.25^2, [1 12.5 6.25^2]);
+Wra = ss([Wra_tf; 0; 0]);
 Wra.InputName = 'r';
-Wd.OutputName = 'wra';
+Wra.OutputName = 'wra';
 
 We_tf = tf([0.4 3.94], [1 0.00985]);
-We = ss(diag([We_tf 0]));
+We = ss(blkdiag([We_tf; 0; 0]));
 We.InputName = 'wra_plus_y';
 We.OutputName = 'ze';
 
 Wp_tf_alpha = tf([0.015 0.4909],[1 0.1964]);
 Wp_tf_alpha_n = tf([0.0063 0.7637], [1 0.3055]);
-Wp = ss(diag([Wp_tf_alpha; Wp_tf_alpha_n]));
+Wp = ss(blkdiag([Wp_tf_alpha; 0; Wp_tf_alpha_n])); %  targets pitch \alpha and normal acceleration \alpha_n
 Wp.InputName = 'y';
 Wp.outputName = 'zp';
 
-penalty_freq = deg2rad(35)
+penalty_freq = deg2rad(35);
 
 Wu = ss(1/penalty_freq);
 Wu.InputName = 'utilde';
 Wu.OutputName = 'zu';
 
-sum_wra_y = sumblk('wra_plus_y = wra - y');
 
-
-
-WmT = 
-
+% GTu_samples, Geu_samples
 
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
 % Feel free to use the samples taken in A1/Ex2
 
+[usys_gt, info_gt] = ucover(GTu_samples, GT, 2, [], 'OutputMult');
+[usys_ge, info_ge] = ucover(Ge_samples, Ge, 2, [], 'OutputMult');
 
-%WmT = ...             % Thrust
-%Wme = ...             % Elevator deflection
-%Wm = blkdiag(WmT,Wme);
+WmT = minreal(info_gt.W1 * info_gt.W2);
+Wme = minreal(info_ge.W1 * info_ge.W2);
 
+Wm = ss(blkdiag(WmT,Wme));
+Wm.InputName = 'udelta';
+Wm.OutputName = 'Wm';
 % Provide appropriate input/output names
+
+
+sum_wra_y = sumblk('wra_plus_y = wra - y', 3);
+SumInput = sumblk('utilde = Wm + ydelta + Wd');
 
 
 % Define the summation blocks (there are three):
