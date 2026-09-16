@@ -287,19 +287,19 @@ Wra.InputName = 'r';
 Wra.OutputName = 'wra';
 
 We_tf = tf([0.4 3.94], [1 0.00985]);
-We = ss(blkdiag([We_tf; 0; 0]));
+We = ss(blkdiag(We_tf, 0, 0));
 We.InputName = 'wra_plus_y';
 We.OutputName = 'ze';
 
 Wp_tf_alpha = tf([0.015 0.4909],[1 0.1964]);
 Wp_tf_alpha_n = tf([0.0063 0.7637], [1 0.3055]);
-Wp = ss(blkdiag([Wp_tf_alpha; 0; Wp_tf_alpha_n])); %  targets pitch \alpha and normal acceleration \alpha_n
+Wp = ss(blkdiag(Wp_tf_alpha, 0, Wp_tf_alpha_n)); %  targets pitch \alpha and normal acceleration \alpha_n
 Wp.InputName = 'y';
 Wp.outputName = 'zp';
 
 penalty_freq = deg2rad(35);
 
-Wu = ss(1/penalty_freq);
+Wu = ss(blkdiag(1, 1/penalty_freq));
 Wu.InputName = 'utilde';
 Wu.OutputName = 'zu';
 
@@ -319,18 +319,17 @@ Wm.OutputName = 'Wm';
 
 
 sum_wra_y = sumblk('wra_plus_y = wra - y', 3);
-sum_utilde = sumblk('utilde = Wm + ydelta + Wd');
-
-
+sum_utilde = sumblk('utilde = Wm + ydelta + Wd', 2);
+sum_u = sumblk('ytilde = y + Wn', 3);
 
 % Define the summation blocks (there are three):
 
 % Define the appropriate inputs and outputs (the order matters!)
-%inputs = ...
-%outputs = ...
 
-%P = connect(...)
+inputs = {'udelta', 'r', 'n', 'd', 'u'};
+outputs = {'ydelta', 'ze', 'zp', 'zu', 'ytilde', 'r'};
 
+P = connect(Ga, Gn, Wm, Wd, Wn, Wra, We, Wp, Wu, sum_wra_y, sum_utilde, sum_u, inputs, outputs);
 %% A2/Ex2
 % Compute the H-infinity controller
 
