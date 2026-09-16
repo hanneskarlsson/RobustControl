@@ -310,13 +310,13 @@ clc
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
 % Feel free to use the samples taken in A1/Ex2
 Wralphatf = tf(6.25^2,[1, 2*6.25, 6.25^2]);
-Wra = ss([Wralphatf; 0; 0]);
+Wra = ss([Wralphatf; 0]);
 Wra.OutputName = 'Wralpha'
 Wra.InputName = 'r'
 
 % We 
-Wetf = calculateWeight(400, 4.3, 0.4);
-We = ss([Wetf, 0, 0]);
+Wetf = [calculateWeight(400, 4.3, 0.4), 0];
+We = ss([Wetf, 0]);
 We.OutputName = 'We'
 We.InputName = 'sum4'
 %Wp
@@ -332,6 +332,11 @@ Wu.OutputName = 'Wu'
 Wu.InputName = 'u'
 
 
+% Convert the parametric uncertainty in Gau into
+% output multiplicative uncertainty using ucover.
+%
+% Wm(s) = [ WmT(s)    0
+%             0      Wme(s)]
 w = logspace(-2,2,500);
 
 Geu_samples = usample(Geu,100); 
@@ -340,8 +345,8 @@ GTu_samples = usample(GTu,100);
 Geu_samples_frd = frd(Geu_samples,w);
 GTu_samples_frd = frd(GTu_samples,w);
 
-[Wme, info1] = ucover(Geu_samples_frd, Ge,2);
-[WmT, info2] = ucover(GTu_samples_frd, GT, 2);
+Wme = ucover(Geu_samples_frd, Ge,2);
+WmT = ucover(GTu_samples_frd, GT, 2);
 
 
 
@@ -351,8 +356,8 @@ Wm.InputName  = 'udelta';
 Wm.OutputName = 'Wm';
 
 % Provide appropriate input/output names
-Sum4 = sumblk('sum4 = Wralpha-y',3);
-Sum5 = sumblk('sum5 = ydelta+Wm+Wd',2);
+Sum4 = sumblk('sum4 = Wralpha-y',2);
+Sum5 = sumblk('sum5 = udelta+Wm+Wd',3);
 Sum6 = sumblk('sum6 = Wn+y',3);
 % Define the summation blocks (there are three):
 
@@ -361,7 +366,7 @@ inputs = {'udelta','r','n','d','u'}
 outputs = {'ydelta','z','v'}
 
 %
-P = connect(Wra, Wm, Wd, Ga, Wn, Gn, We, Wp, Wu, Sum4, Sum5, Sum6, inputs, outputs)
+P = connect(Wra, Wm, Wd, Ga, Wn, Gn, We, Wp, Wu, inputs, outputs)
 
 
 function W = calculateWeight(DCgain, wc, HFgain)
