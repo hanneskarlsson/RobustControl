@@ -312,8 +312,8 @@ Wu.OutputName = 'zu';
 [usys_gt, info_gt] = ucover(GTu_samples, GT, 2, [], 'OutputMult');
 [usys_ge, info_ge] = ucover(Geu_samples, Ge, 2, [], 'OutputMult');
 
-WmT = minreal(info_gt.W1 * info_gt.W2);
-Wme = minreal(info_ge.W1 * info_ge.W2);
+WmT = minreal(info_gt.W1);
+Wme = minreal(info_ge.W1);
 
 Wm = ss(blkdiag(WmT,Wme));
 Wm.InputName = 'udelta';
