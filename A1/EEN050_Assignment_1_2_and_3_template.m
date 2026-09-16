@@ -333,14 +333,22 @@ P = connect(Ga, Gn, Wm, Wd, Wn, Wra, We, Wp, Wu, sum_wra_y, sum_utilde, sum_u, i
 %% A2/Ex2
 % Compute the H-infinity controller
 
+[Kinf, Ninf, gamma, info_inf] = hinfsyn(P, 4, 2);
+
 % plot the singular values
 figure(4)
+sigma(Kinf)
+grid on
+title('H_inf: singular values')
 
 %% A2/Ex3
 % Compute the H2-controller
-
+[K_2, N_2, gamma_2, info_2] = h2syn(P, 4, 2);
 % plot the singular values
 figure(5)
+sigma(K_2);
+grid on
+title('H_2: singular values');
 
 
 %% A3/Ex1
