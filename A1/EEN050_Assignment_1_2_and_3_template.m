@@ -303,7 +303,6 @@ Wu = ss(blkdiag(1, 1/penalty_freq));
 Wu.InputName = 'utilde';
 Wu.OutputName = 'zu';
 
-
 % GTu_samples, Geu_samples
 
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
@@ -316,7 +315,6 @@ Wm = ss(blkdiag(info_gt.W1,info_ge.W1));
 Wm.InputName = 'udelta';
 Wm.OutputName = 'Wm';
 % Provide appropriate input/output names
-
 
 sum_wra_y = sumblk('wra_plus_y = wra - y', 3);
 sum_utilde = sumblk('utilde = Wm + ydelta + Wd', 2);
@@ -339,7 +337,8 @@ P = connect(Ga, Gn, Wm, Wd, Wn, Wra, We, Wp, Wu, sum_wra_y, sum_utilde, sum_u, i
 figure(4)
 sigma(Kinf)
 grid on
-title('H_inf: singular values')
+title('H_{\infty}: singular values')
+
 
 %% A2/Ex3
 % Compute the H2-controller

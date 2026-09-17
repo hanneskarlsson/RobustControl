@@ -303,7 +303,6 @@ Wu = ss(blkdiag(1, 1/penalty_freq));
 Wu.InputName = 'utilde';
 Wu.OutputName = 'zu';
 
-
 % GTu_samples, Geu_samples
 
 % Define WmT, Wme, and Wm (read the documentation for 'ucover')
@@ -337,18 +336,21 @@ P = connect(Ga, Gn, Wm, Wd, Wn, Wra, We, Wp, Wu, sum_wra_y, sum_utilde, sum_u, i
 
 % plot the singular values
 figure(4)
-sigma(GTu_samples)
-hold on
-sigma(GTu.NominalValue, 'red')
-title('Elevator deflection: singular values')
-legend('random samples','nominal')
-hold off
+sigma(Kinf)
+grid on
+title('H_{\infty}: singular values')
 
+%%
+
+sigma(Wm)
 %% A2/Ex3
 % Compute the H2-controller
-
+[K_2, N_2, gamma_2, info_2] = h2syn(P, 4, 2);
 % plot the singular values
 figure(5)
+sigma(K_2);
+grid on
+title('H_2: singular values');
 
 
 %% A3/Ex1
