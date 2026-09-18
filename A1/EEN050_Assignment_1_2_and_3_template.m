@@ -287,7 +287,7 @@ Wra.InputName = 'r';
 Wra.OutputName = 'wra';
 
 We_tf = tf([0.4 3.94], [1 0.00985]);
-We = ss([We_tf 0 0]);
+We = ss(blkdiag([We_tf, 0, 0]));
 We.InputName = 'wra_plus_y';
 We.OutputName = 'ze';
 
