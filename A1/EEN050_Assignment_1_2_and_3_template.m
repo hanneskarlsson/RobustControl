@@ -287,7 +287,7 @@ Wra.InputName = 'r';
 Wra.OutputName = 'wra';
 
 We_tf = tf([0.4 3.94], [1 0.00985]);
-We = ss(blkdiag(We_tf, 0, 0));
+We = ss([We_tf 0 0]);
 We.InputName = 'wra_plus_y';
 We.OutputName = 'ze';
 
@@ -328,6 +328,9 @@ inputs = {'udelta', 'r', 'n', 'd', 'u'};
 outputs = {'ydelta', 'ze', 'zp', 'zu', 'ytilde', 'r'};
 
 P = connect(Ga, Gn, Wm, Wd, Wn, Wra, We, Wp, Wu, sum_wra_y, sum_utilde, sum_u, inputs, outputs);
+%%
+tf(We)
+
 %% A2/Ex2
 % Compute the H-infinity controller
 
