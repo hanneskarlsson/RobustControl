@@ -317,19 +317,19 @@ Wra.InputName = 'r'
 % We 
 Wetf = calculateWeight(400, 4.3, 0.4);
 We = ss([Wetf, 0, 0]);
-We.OutputName = 'We'
+We.OutputName = 'ze'
 We.InputName = 'sum4'
 %Wp
 Wangle = calculateWeight(2.5,0.45, 0.015);
 Wacc = calculateWeight(2.5,0.7,0.0063);
-Wp = ss([Wangle ; Wacc]);
-Wp.OutputName = 'Wp'
+Wp = ss([Wangle,0 ,0 ;0 , 0, Wacc]);
+Wp.OutputName = 'zp'
 Wp.InputName = 'y'
 %Wu
 Wutf = tf(1/deg2rad(35)); % maybe this should not be rad since the w1 is in degree
-Wu = ss(Wutf);
-Wu.OutputName = 'Wu'
-Wu.InputName = 'u'
+Wu = ss([0,0 ; 0,Wutf]);
+Wu.OutputName = 'zu'
+Wu.InputName = 'utilde'
 
 
 w = logspace(-2,2,500);
@@ -340,30 +340,28 @@ GTu_samples = usample(GTu,100);
 Geu_samples_frd = frd(Geu_samples,w);
 GTu_samples_frd = frd(GTu_samples,w);
 
-[Wme, info1] = ucover(Geu_samples_frd, Ge,2);
-[WmT, info2] = ucover(GTu_samples_frd, GT, 2);
+[Wme, info1] = ucover(Geu_samples_frd, Ge,2, 'Outputmult');
+[WmT, info2] = ucover(GTu_samples_frd, GT, 2, 'Outputmult');
 
-
-
-
-Wm = ss(blkdiag(WmT,Wme));
+%Wm = ss(blkdiag(WmT,Wme));
+Wm = ss(blkdiag(info2.W1, info1.W1))
 Wm.InputName  = 'udelta';
 Wm.OutputName = 'Wm';
 
 % Provide appropriate input/output names
 Sum4 = sumblk('sum4 = Wralpha-y',3);
-Sum5 = sumblk('sum5 = ydelta+Wm+Wd',2);
-Sum6 = sumblk('sum6 = Wn+y',3);
+Sum5 = sumblk('utilde = ydelta+Wm+Wd',2);
+Sum6 = sumblk('ytilde = Wn+y',3);
 % Define the summation blocks (there are three):
 
 % Define the appropriate inputs and outputs (the order matters!)
 inputs = {'udelta','r','n','d','u'}
-outputs = {'ydelta','z','v'}
+outputs = {'ydelta','ze','zp','zu','ytilde', 'r'}
 
 %
-P = connect(Wra, Wm, Wd, Ga, Wn, Gn, We, Wp, Wu, Sum4, Sum5, Sum6, inputs, outputs)
 
-
+P = connect(Ga, Gn, Wm, Wd, Wn, Wra, We, Wp, Wu, Sum4, Sum5, Sum6, inputs, outputs);
+    
 function W = calculateWeight(DCgain, wc, HFgain)
 % calculateWeight Calculates K, z, and p for
 %
@@ -400,11 +398,27 @@ end
 %% A2/Ex2
 % Compute the H-infinity controller
 
+[Kinf, Ninf, gamma, info_inf] = hinfsyn(P, 4, 2);
+
+% plot the singular values
+figure(4)
+sigma(Kinf)
+grid on
+title('H_inf: singular values')
+
+
 % plot the singular values
 figure(4)
 
 %% A2/Ex3
 % Compute the H2-controller
+% Compute the H2-controller
+[K_2, N_2, gamma_2, info_2] = h2syn(P, 4, 2);
+% plot the singular values
+figure(5)
+sigma(K_2);
+grid on
+title('H_2: singular values');
 
 % plot the singular values
 figure(5)
@@ -412,8 +426,171 @@ figure(5)
 
 
 %% A3/Ex1
+% Nominal stability true
+isstable(tf(Ninf))
 
+% Nominal performance
 
+%% ======================================================================
+%  EEN050 - Assignment 3 solution
+%  Paste these sections in place of the A3 skeleton in
+%  EEN050_Assignment_1_2_and_3_template.m
+%  (Assumes A1 and A2 sections have already been run, so that
+%   Gn, Ga, Wd, Wn, Gau, LQG, P, Kinf, Ninf, gamma, info_inf, K_2, N_2
+%   are already defined in the workspace.)
+%  ======================================================================
+
+%% A3/Ex1 - Closed loop analysis (H_infinity controller)
+clc
+w = logspace(-2,3,500);              % omega in [0.01, 1000] rad/s
+
+N = Ninf;                            % N = lft(P,Kinf) from hinfsyn
+
+% ---- Nominal Stability (NS) --------------------------------------------
+NS = isstable(N);
+fprintf('Nominal stability (NS): %d\n', NS)
+
+% ---- Channel partition of N --------------------------------------------
+% N inputs  (order): udelta(2)  r(1)  n(3)  d(1)
+% N outputs (order): ydelta(2)  ze(1) zp(2) zu(2)
+in_udelta  = 1:2;   in_r = 3;   in_n = 4:6;   in_d = 7;
+out_ydelta = 1:2;   out_ze = 3; out_zp = 4:5; out_zu = 6:7;
+
+N11 = N(out_ydelta, in_udelta);                          % udelta -> ydelta (RS)
+N22 = N([out_ze out_zp out_zu], [in_r in_n in_d]);        % [r,n,d] -> [ze,zp,zu] (NP)
+
+% ---- Nominal Performance (NP): sigma_bar(N22) < 1 -----------------------
+figure
+sigma(N22, w); grid on
+title('NP test:  \sigma(N_{22})  (must stay below 0 dB)')
+
+% ---- Robust Stability (RS): sigma_bar(N11) < 1 ---------------------------
+figure
+sigma(N11, w); grid on
+title('RS test:  \sigma(N_{11})  (must stay below 0 dB)')
+
+% ---- Robust Performance (RP), quick sufficient test ----------------------
+% sigma_bar(N) < 1 for all w  (equivalent to checking gamma<1 pointwise;
+% conservative because it treats the performance block and Delta_m as one
+% single full block instead of two separate blocks)
+figure
+sigma(N, w); grid on
+title('RP test (sufficient):  \sigma(N)  (must stay below 0 dB)')
+
+% ---- Robust Performance (RP), exact test via mu (structured singular value)
+% Delta_hat = blkdiag(Delta_m , Delta_p)
+%   Delta_m : 2x2 full complex block   (the actual uncertainty)
+%   Delta_p : 5x5 full complex block   (fictitious performance block,
+%             size = dim([ze;zp;zu]) = 1+2+2 = 5)
+blk = [2 2; 5 5];
+Nfrd = frd(N, w);
+[mubnds, ~] = mussv(Nfrd, blk);
+
+% mubnds is an frd object: mubnds(1,1) = upper bound, mubnds(1,2) = lower bound
+muUpper = squeeze(mubnds(1,1).ResponseData);   % convert to a plain double vector
+muLower = squeeze(mubnds(1,2).ResponseData);
+
+figure
+semilogx(w, 20*log10(muUpper)); hold on
+semilogx(w, 20*log10(muLower));
+yline(0,'r--')
+grid on
+xlabel('\omega [rad/s]'); ylabel('\mu bounds [dB]')
+title('RP test (exact, via \mu)')
+legend('\mu upper bound','\mu lower bound','0 dB')
+% --- Report the results ---
+disp('NS holds if isstable(N) = 1')
+disp('NP holds if sigma_bar(N22) stays below 0 dB for all w in [0.01,1000]')
+disp('RS holds if sigma_bar(N11) stays below 0 dB for all w in [0.01,1000]')
+disp('RP holds if mu(N) (or, conservatively, sigma_bar(N)) stays below 0 dB')
+
+%% A3/Ex2 - Closed loop simulation: LQG vs Hinf vs H2
+clc
+
+% Give Kinf and K_2 the SAME input/output names as LQG so they can be
+% dropped into exactly the same feedback structure as in A1/Ex3
+Kinf.InputName  = {'ytilde(1)','ytilde(2)','ytilde(3)','r'};
+Kinf.OutputName = 'u';
+K_2.InputName   = {'ytilde(1)','ytilde(2)','ytilde(3)','r'};
+K_2.OutputName  = 'u';
+
+% One random sample of the uncertain actuator dynamics.
+% Use the SAME sample for all three controllers so the comparison is fair.
+Ga_random = usample(Gau);
+Ga_random.InputName  = 'u';
+Ga_random.OutputName = 'ydelta';
+
+% Re-affirm the names of the fixed blocks (as in A1/Ex3)
+Gn.InputName = 'utilde';  Gn.OutputName = 'y';
+Wd.InputName = 'd';       Wd.OutputName = 'Wd';
+Wn.InputName = 'n';       Wn.OutputName = 'Wn';
+
+Sum1 = sumblk('utilde = ydelta+Wd',2);
+Sum2 = sumblk('ytilde = y+Wn',3);
+
+inputs  = {'r','n','d'};
+outputs = {'y(1)'};        % angle of attack [deg]
+
+% Closed loop systems (same plant + Ga_random, three different controllers)
+LQG_clp  = connect(Ga_random,Gn,Wd,Wn,LQG, Sum1,Sum2,inputs,outputs);
+Hinf_clp = connect(Ga_random,Gn,Wd,Wn,Kinf,Sum1,Sum2,inputs,outputs);
+H2_clp   = connect(Ga_random,Gn,Wd,Wn,K_2, Sum1,Sum2,inputs,outputs);
+
+% Simulation parameters
+N_sim = 1000;
+T = linspace(0,50,N_sim);
+flag_noise = 1;
+flag_x0 = 1;
+
+r = zeros(N_sim,1);
+r(1:200)=-0.5; r(201:400)=1; r(401:600)=5; r(601:800)=-2; r(801:end)=0;
+noise = randn(N_sim,4);
+U = [r noise*flag_noise];
+
+% Initial states (each closed loop has its own state dimension)
+nx_LQG  = length(LQG_clp.A);
+nx_Hinf = length(Hinf_clp.A);
+nx_H2   = length(H2_clp.A);
+
+x0_LQG  = randn(nx_LQG,1) *flag_x0;
+x0_Hinf = randn(nx_Hinf,1)*flag_x0;
+x0_H2   = randn(nx_H2,1)  *flag_x0;
+
+% Simulate
+YLQG = lsim(LQG_clp, U, T, x0_LQG);
+Yinf = lsim(Hinf_clp,U, T, x0_Hinf);
+Y2   = lsim(H2_clp,  U, T, x0_H2);
+
+figure(8)
+plot(T,Yinf,T,Y2,T,YLQG,T,r,'r--')
+title('Reference tracking on angle of attack [deg] (uncertain actuator dynamics)')
+xlabel('time [s]'); ylabel('\alpha [deg]')
+legend('H_\infty','H_2','LQG','reference')
+ylim([-3,6])
+grid on
+
+%% A3/Ex3 - Conclusion (discussion points for the report)
+% Use the plot from A3/Ex2 (and, ideally, repeat it for a few different
+% random samples of Ga to see if the ranking is consistent) to comment on:
+%
+% 1. Which controller tracks the reference fastest / with least overshoot?
+% 2. Which controller is least sensitive to the randomly sampled actuator
+%    uncertainty (compare against the nominal-Ga simulation from A1/Ex3)?
+% 3. Which controller rejects noise (n) and disturbance (d) best?
+% 4. Is it a fair comparison?
+%    - LQG's Q,R weights were tuned "by feel" for the nominal plant only;
+%      it was never told anything about the actuator uncertainty.
+%    - Hinf/H2 were explicitly synthesized against Wm (which covers the
+%      100 parametric samples), so they "know about" the uncertainty by
+%      construction - an intrinsic advantage in this comparison.
+%    - The three designs also don't share a common performance
+%      specification (LQG uses quadratic state/ input cost with an
+%      integrator; Hinf/H2 use frequency-weighted tracking error/ output/
+%      input weights) so "better" partly reflects different design intent,
+%      not just different mathematical techniques.
+%    - Only ONE random Ga sample is used per run; a fair robustness
+%      comparison would look at the worst case (or many samples) rather
+%      than a single draw.
 
 %% A3/Ex2 Simulation
 % - Construct with 'connect' the  closed loop system between the LQG, Hinf,

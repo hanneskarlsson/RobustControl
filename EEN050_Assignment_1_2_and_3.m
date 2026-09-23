@@ -322,12 +322,12 @@ We.InputName = 'sum4'
 %Wp
 Wangle = calculateWeight(2.5,0.45, 0.015);
 Wacc = calculateWeight(2.5,0.7,0.0063);
-Wp = ss(blkdiag(Wangle, 0, Wacc));
+Wp = ss([Wangle,0 ,0 ;0 , 0, Wacc]);
 Wp.OutputName = 'zp'
 Wp.InputName = 'y'
 %Wu
 Wutf = tf(1/deg2rad(35)); % maybe this should not be rad since the w1 is in degree
-Wu = ss(blkdiag(1,Wutf));
+Wu = ss([0,0 ; 0,Wutf]);
 Wu.OutputName = 'zu'
 Wu.InputName = 'utilde'
 
@@ -428,13 +428,30 @@ figure(5)
 %% A3/Ex1
 % Nominal stability true
 isstable(tf(Ninf))
-any(pole(tf(Ninf))) ;
+w = logspace(-2,3,500);              % omega in [0.01, 1000] rad/s
 
+    
+% input udelta 1:2 r= 3 n = 4:6 d = 7
+% output ydelta = 1:2 ze = 3 zp = 4:5 zu = 6:7 
 % Nominal performance
-tfunc = tf(Ninf);
-tfuncw = tfunc(:,2:7);
-sigma(tfuncw);
-hinfnorm(tfuncw);
+
+figure(6)
+N22 = Ninf(3:7, 3:7);
+sigma(N22, w) % this should be less than 1 0db for 
+title('NP test:  \sigma(N_{22})  (must stay below 0 dB)')
+yline(0,'r--')
+
+figure(7)
+N11 = Ninf(1:2,1:2);
+sigma(N11,w)
+yline(0,'r--')
+title('RS test:  \sigma(N_{11})  (must stay below 0 dB)')
+
+figure (8)
+sigma(Ninf, w)
+yline(0,'r--')
+title('RP test:  \sigma  (must stay below 0 dB)')
+% also not stable sincce we dont have nominal performance
 
 
 %% A3/Ex2 Simulation
@@ -444,6 +461,20 @@ hinfnorm(tfuncw);
 % - Ga (nominal value or a sample of the uncertain actuator dynamics)
 % - Wn, Wd, and, Gn
 % - The delta block and the filters Wra, We, Wp, Wu, Wm are not included!
+
+
+Kinf.InputName = {'ytilde(1)','ytilde(2)','ytilde(3)','r'};
+Kinf.OutputName = 'u';
+
+K_2.InputName = {'ytilde(1)','ytilde(2)','ytilde(3)','r'};
+K_2.OutputName = 'u';
+
+Ga_random2 = usample(Gau);
+Ga_random2.InputName = 'u';
+Ga_random2.OutputName = 'ydelta';
+
+Sumutilde = sumblk('utilde = ydelta+Wd',2);
+Sumytilde = sumblk('ytilde = y+Wn',3);
 
 % Take a random sample of the uncertain actuator dynamics
 
@@ -455,15 +486,48 @@ hinfnorm(tfuncw);
 
 % Define the closed loop systems:
 % LQG closed loop system
-%LQG_clp = connect(...);
+inputsys = {'r', 'n', 'd'};
+outputsys = {'y(1)'};
+
+LQG_clp = connect(LQG, Ga_random2, Gn, Wn, Wd, Sumutilde, Sumytilde,inputsys, outputsys );
 
 % H-infinity closed loop system
-%Hinf_clp = connect(...);
+Hinf_clp = connect(Kinf, Ga_random2, Gn, Wn, Wd, Sumutilde, Sumytilde,inputsys, outputsys );
 
 % H-2 closed loop system
-%H2_clp = connect(...);
+H2_clp = connect(K_2, Ga_random2, Gn, Wn, Wd, Sumutilde, Sumytilde,inputsys, outputsys );
+
+% Simulation parameters:
+N = 1000;                  % number of time steps in simulation
+T = linspace(0,50,N);      % time vector
+flag_noise = 1;            % set to zero to remove noise
+flag_x0 = 1;               % set to zero to initialize system at the origin
+
+% Inputs:
+r = zeros(N,1);            % reference signal
+r(1:200)=-0.5; r(201:400)=1; r(401:600)=5; r(601:800)=-2; r(801:end)=0;
+noise = randn(N,4);        % disturbance and measurement noise
+U = [r, noise*flag_noise];  % input vector
 
 
+
+% Number of states in the closed loop system
+nx_LQG  = length(LQG_clp.A);
+nx_H = length(Hinf_clp.A);
+
+ 
+x0_LQG  = randn(nx_LQG,1) *flag_x0;
+x0_H   = randn(nx_H,1)  *flag_x0;
+% Simulating and plotting
+Y_LQG = lsim(LQG_clp,U,T,x0_LQG);
+Y_Hinf = lsim(Hinf_clp,U,T,x0_H);
+Y_H2 = lsim(H2_clp,U,T,x0_H);
+figure(9)
+plot(T,Y_Hinf,T,Y_H2,T,Y_LQG,T,r,'r--')
+
+title('Reference tracking on angle of attack [deg]')
+legend('Hinf','H2','LQG','reference')
+ylim([-3,6])
 % Feel free to use the following plotting routine:
 % Simulation parameters:
 % N = 1000;                  % number of time steps in simulation
