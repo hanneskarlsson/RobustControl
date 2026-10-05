@@ -5,7 +5,7 @@
 %Initialization
 clear all;
 close all;
-clc
+
 % READ THIS:
 % - Run this section first and do not overwrite any of the variables here
 % besides (if necessary) input names and output names for the ss-objects.
