@@ -1,39 +1,98 @@
 
 addpath(genpath(fullfile(pwd,'yalmip')));
 
-
-S = sdpsettings('solver', 'sedumi', 'sedumi.eps', 1e-8, ...
-                'sedumi.cg.qprec', 1, 'sedumi.cg.maxiter', 49, ...
-                'sedumi.stepdif', 2);
-
+clc;
 % clear local data
 yalmip('clear');
 
-% x = sdpvar(2,1);
+%p = sdpvar(1,1);
 
 c1 = 1/60;
 c2 = 0.2;
 c3 = 0.1;
 
 
-u_vec = [0, 0.3, 0.8];  % Lockdown, distancing, no distancing
-
-% set P = x1*x3?
-
-
-A = [
+A0 = [
     0 0 0 c1;
     0 -c2 0 0;
-    0 c2 0 0;
-    0 0 0 -c1;
+    0 c2 -c3 0;
+    0 0 c3 -c1;
 ];
 
-B = [
-    
+A1 = [
+    -1 0 0 0; 
+    1 0 0 0; 
+    0 0 0 0;
+    0 0 0 0
 ];
 
 
+% u = [0, 0.3, 0.8], Lockdown, distancing, no distancing
 
+u = 0.8;
+
+Afun = @(p) A0 + p*A1;
+
+rhs = @ (t,x) Afun(u*x(3))*x;
+
+x0 = [
+    0.99; 0; 0.01; 0
+    ];
+
+[t, x] = ode45(rhs, [0 400], x0);
+
+%% 
+figure;
+plot(t, x(:,1), 'LineWidth', 1.5);
+hold on;
+plot(t, x(:,2), 'LineWidth', 1.5);
+plot(t, x(:,3), 'LineWidth', 1.5);
+plot(t, x(:,4), 'LineWidth', 1.5);
+hold off;
+
+grid on;
+xlabel('Time [days]');
+ylabel('Population fraction');
+title(sprintf('SEIR simulation, u = %.1f', u));
+legend('Susceptible x_1', ...
+       'Exposed x_2', ...
+       'Infected x_3', ...
+       'Recovered x_4', ...
+       'Location', 'best');
+
+%% EX2
+ 
+
+O = [ 0, 0, c2 * ps, c2*pds-c2*(ps^2 +c2); 
+    0, c2, -c2^2-c2*c3, c2^3+c2^2*c3 + c2*c3^2 ;
+    1, -c3, c3^2, -c3^3;
+    0, 0, 0, c1*c2*ps]
+det(O)
+
+
+%% Ex 3
+clc;
+P = sdpvar(4,4);
+c = 0.1;
+
+F = [P >= c*eye(4)];
+
+
+for p_vertex = [0 0.6]
+    A_vertex = Afun(p_vertex);
+
+    F = [F, A_vertex'*P + P*A_vertex <= -c*eye(4)];
+end
+
+
+options = sdpsettings('solver','lmilab','verbose',1);
+diagnostics = optimize(F, [], options);
+
+disp(diagnostics.info);
+disp(check(F));
+
+
+%%
 
 
 
