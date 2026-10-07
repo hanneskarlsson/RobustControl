@@ -1,0 +1,52 @@
+syms ps pds
+u = 0.8;
+p = @(x,t) u* x(3);
+c1 = 1/60;
+c2 = 0.2;
+c3 = 0.1;
+A = @(x,t) [-p(x,t), 0, 0, c1 ;...
+            p(x,t), -c2,0,0; ...
+            0, c2, -c3, 0; ...
+            0, 0, c3, -c1];
+f = @(t,x) A(x,t)*x
+% X = [x1;x2;x3;x4];
+
+% Initial conditions
+x0 = [0.99; 0; 0.01; 0];
+
+% Simulate
+[t,x] = ode45(f,[0 150],x0);
+
+sum(x(end,:))
+% Plot all states
+figure;
+
+plot(t,x(:,1),'LineWidth',1.5)
+hold on
+plot(t,x(:,2),'LineWidth',1.5)
+plot(t,x(:,3),'LineWidth',1.5)
+plot(t,x(:,4),'LineWidth',1.5)
+
+grid on
+xlabel('Time')
+ylabel('State value')
+legend('susceptible', 'exposed', 'infected', 'recovered')
+title('State trajectories')
+
+% Exercise 1 
+% it is endo, linear    
+% exact 
+%%
+%%Exercise 2
+
+O = [ 0, 0, c2 * ps, c2*pds-c2*(ps^2 +c2); 
+    0, c2, -c2^2-c2*c3, c2^3+c2^2*c3 + c2*c3^2 ;
+    1, -c3, c3^2, -c3^3;
+    0, 0, 0, c1*c2*ps]
+detO = simplify(det(O))
+
+solp = solve(d == 0, [pds, ps])
+
+
+
+
