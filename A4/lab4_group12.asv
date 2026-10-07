@@ -1,0 +1,9 @@
+
+addpath(genpath(fullfile(pwd,'yalmip')));
+
+% clear local data
+yalmip('clear');
+
+% x = sdpvar(2,1);
+
+
